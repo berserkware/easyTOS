@@ -1,5 +1,5 @@
 # easyTOS!
-easyTOS is a utility program for installing, running, and mounting TempleOS.
+easyTOS is a utility program for installing, running, and mounting TempleOS. Please note that this software is in the alpha stage of development, so bugs might occur.
 
 ![alt text](easytos.png "Screenshot")
 
