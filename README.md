@@ -1,6 +1,8 @@
 # easyTOS!
 easyTOS is a utility program for installing, running, and mounting TempleOS.
 
+![alt text](easytos.png "Screenshot")
+
 ## Prerequisites
  - Linux: easyTOS currently only works on Linux.
  - Python 3.11
