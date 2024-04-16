@@ -27,6 +27,7 @@ $ sudo easytos
  - RUN: Runs TempleOS.
  - MOUNT: Mounts the QEMU disc to allow you transfer files between your computer and Linux.
  - UNMOUNT: Unmounts the QEMU disc.
+ - EXIT: Exits easyTOS.
 
 ## Configuring
 You can configure easyTOS by editing the global constants in the Python file.
@@ -37,3 +38,4 @@ the mount point.
  - Support for mulitple TOS VMs
  - Graphical VM-configurator
  - Graphical easyTOS-configurator
+ - Support mounting other drives, like the D drive.
