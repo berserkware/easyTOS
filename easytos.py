@@ -9,6 +9,7 @@ import subprocess
 # Edit these to modify the program
 VM_MEMORY = 4096
 VM_STORAGE = '5G'
+CPU_COUNT = 2
 MOUNT_POINT = '/mnt/templeos'
 ISO_SOURCE = 'https://templeos.org/Downloads/TempleOS.ISO'
 
@@ -96,7 +97,7 @@ class MainMenu(tk.Frame):
     def do_run(self):
         """Runs TempleOS."""
         subprocess.Popen(
-            f'sudo qemu-system-x86_64 -m {VM_MEMORY} -hda /var/lib/easytos/templeos.qcow2',
+            f'sudo qemu-system-x86_64 -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw',
             shell=True,
         )
 
@@ -109,7 +110,7 @@ class MainMenu(tk.Frame):
             os.system(f'sudo qemu-img create /var/lib/easytos/templeos.qcow2 {VM_STORAGE}')
 
         os.system(
-            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {VM_MEMORY} -hda /var/lib/easytos/templeos.qcow2'
+            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw'
         )
 
         self.exit_button.pack_forget()

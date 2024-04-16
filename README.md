@@ -31,11 +31,12 @@ $ sudo easytos
 
 ## Configuring
 You can configure easyTOS by editing the global constants in the Python file.
-You can change the amount of storage and ram to give the VM. You can also edit
-the mount point.
+You can change the amount of storage, ram, cpu count to give the VM. You can also edit
+the mount point. You can also change the source for the TempleOS ISO.
 
 ## TODO
  - Support for mulitple TOS VMs
  - Graphical VM-configurator
  - Graphical easyTOS-configurator
  - Support mounting other drives, like the D drive.
+ - Terminal logging.
