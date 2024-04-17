@@ -21,6 +21,8 @@ def get_iso():
 
 
 class SudoNotice(tk.Frame):
+    """The notice to tell the user they need to run as sudo."""
+    
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
 
@@ -37,14 +39,59 @@ class SudoNotice(tk.Frame):
             width=40,
         )
         self.button.pack()
+
+
+class CreateVM(tk.Toplevel):
+    """A window for creating a VM."""
+    
+    def __init__(self, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, **kwargs)
+
+        self.wm_title("Create VM")
+        self.wm_resizable(False, False)
+
+        self.message = ttk.Label(
+            self,
+            text='Create VM',
+            font=('Helvetica', 15),
+        )
+        self.message.pack(pady=5)
+        
+        self.install_button = ttk.Button(
+            self,
+            text='Create',
+            command=self.do_install,
+            width=30,
+        )
+        self.install_button.pack()
+        
+
+    def do_install(self):
+        """Gets the TempleOS ISO, creates the QEMU Image, and runs it with the CD installed."""
+        if not os.path.exists('/var/lib/easytos/TempleOS.ISO'):
+            get_iso()
+
+        if not os.path.exists('/var/lib/easytos/templeos.qcow2'):
+            os.system(f'sudo qemu-img create /var/lib/easytos/templeos.qcow2 {VM_STORAGE}')
+
+        os.system(
+            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw'
+        )
+
+        self.master.exit_button.pack_forget()
+        self.master.run_button.pack()
+        self.master.mount_button.pack()
+        self.master.exit_button.pack()
         
     
 class MainMenu(tk.Frame):
+    """The main menu."""
+    
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
 
         self.message = ttk.Label(
-            root,
+            self,
             text='easyTOS!',
             font=('Helvetica', 30),
         )
@@ -62,7 +109,7 @@ class MainMenu(tk.Frame):
         self.install_button = ttk.Button(
             self,
             text='INSTALL/REINSTALL',
-            command=self.do_install,
+            command=lambda: CreateVM(self),
             width=30,
         )
         self.install_button.pack()
@@ -100,23 +147,6 @@ class MainMenu(tk.Frame):
             f'sudo qemu-system-x86_64 -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw',
             shell=True,
         )
-
-    def do_install(self):
-        """Gets the TempleOS ISO, creates the QEMU Image, and runs it with the CD installed."""
-        if not os.path.exists('/var/lib/easytos/TempleOS.ISO'):
-            get_iso()
-
-        if not os.path.exists('/var/lib/easytos/templeos.qcow2'):
-            os.system(f'sudo qemu-img create /var/lib/easytos/templeos.qcow2 {VM_STORAGE}')
-
-        os.system(
-            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw'
-        )
-
-        self.exit_button.pack_forget()
-        self.run_button.pack()
-        self.mount_button.pack()
-        self.exit_button.pack()
 
     def do_mount(self):
         """Mounts the QEMU disc."""
