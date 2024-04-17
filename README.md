@@ -23,19 +23,18 @@ You need to run easyTOS with sudo for it to work.
 $ sudo easytos
 ```
 ### Options
- - INSTALL/REINSTALL: Downloads the TOS ISO, creates the QEMU disc, and runs the VM for you to install TOS on the disc.
- - RUN: Runs TempleOS.
- - MOUNT: Mounts the QEMU disc to allow you transfer files between your computer and Linux.
- - UNMOUNT: Unmounts the QEMU disc.
+ - NEW INSTALLATION: Downloads the TOS ISO, creates the QEMU disc, and runs the VM for you to install TOS on the disc.
+ - Installation Selector: Selection installation
+ - RUN: Runs the selected installtion.
+ - MOUNT: Mounts the selected installation's QEMU disc to allow you transfer files between your computer and Linux.
+ - UNMOUNT: Unmounts the installation's QEMU disc.
  - EXIT: Exits easyTOS.
 
 ## Configuring
-You can configure easyTOS by editing the global constants in the Python file.
-You can change the amount of storage, ram, cpu count to give the VM. You can also edit
-the mount point. You can also change the source for the TempleOS ISO.
+You can configure the VMs and easyTOS by editing the /var/lib/easytos/config.ini file.
 
 ## TODO
- - Support for mulitple TOS VMs
+ - [DONE] Support for mulitple TOS VMs
  - Graphical VM-configurator
  - Graphical easyTOS-configurator
  - Support mounting other drives, like the D drive.
