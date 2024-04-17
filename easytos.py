@@ -15,9 +15,11 @@ ISO_SOURCE = 'https://templeos.org/Downloads/TempleOS.ISO'
 
 def get_iso():
     """Downloads the TempleOS ISO."""
+    print("Downloading TempleOS ISO...")
     response = requests.get(ISO_SOURCE)
     with open('/var/lib/easytos/TempleOS.ISO', mode='wb') as file:
         file.write(response.content)
+    print("ISO written to /var/lib/easytos.")
 
 
 class SudoNotice(tk.Frame):
@@ -72,8 +74,11 @@ class CreateVM(tk.Toplevel):
             get_iso()
 
         if not os.path.exists('/var/lib/easytos/templeos.qcow2'):
+            print("Creating QEMU img...")
             os.system(f'sudo qemu-img create /var/lib/easytos/templeos.qcow2 {VM_STORAGE}')
+            print("Done.")
 
+        print("Initial TempleOS boot...")
         os.system(
             f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw'
         )
@@ -143,6 +148,7 @@ class MainMenu(tk.Frame):
 
     def do_run(self):
         """Runs TempleOS."""
+        print("Starting TempleOS...")
         subprocess.Popen(
             f'sudo qemu-system-x86_64 -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/templeos.qcow2,format=raw',
             shell=True,
@@ -153,10 +159,12 @@ class MainMenu(tk.Frame):
         if not os.path.exists(MOUNT_POINT):
             os.mkdir(MOUNT_POINT)
 
+        print("Mounting drive...")
         os.system('modprobe nbd max_part=8')
         os.system('qemu-nbd --connect=/dev/nbd0 /var/lib/easytos/templeos.qcow2')
         os.system('mount /dev/nbd0p1 /mnt/templeos')
-
+        print("Mounted at /mnt/templeos.")
+        
         self.exit_button.pack_forget()
         self.unmount_button.pack()
         self.mount_button.pack_forget()
@@ -164,10 +172,12 @@ class MainMenu(tk.Frame):
         
     def do_unmount(self):
         """Unmounts the QEMU disc."""
+        print("Unmounting drive...")
         os.system(f'umount {MOUNT_POINT}')
         os.system('qemu-nbd --disconnect /dev/nbd0')
         os.system('rmmod nbd')
         os.rmdir(MOUNT_POINT)
+        print("Done.")
 
         self.exit_button.pack_forget()
         self.unmount_button.pack_forget()
@@ -181,6 +191,7 @@ if __name__ == '__main__':
     root.resizable(False, False)
 
     if os.geteuid() != 0:
+        print("Superuser Privileges are needed to run easyTOS!")
         sudo_notice = SudoNotice(root)
         sudo_notice.pack(side="top", fill="both", expand=True)
     else:
