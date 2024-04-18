@@ -15,7 +15,6 @@ def get_iso():
         file.write(response.content)
     print("ISO written to /var/lib/easytos.")
 
-
 def get_or_create_config():
     """Gets the config, creates it if it doesn't exist."""
     if not os.path.exists('/var/lib/easytos/config.ini'):
@@ -27,7 +26,8 @@ def get_or_create_config():
     config = configparser.ConfigParser()
     config.read('/var/lib/easytos/config.ini')
     return config
-    
+
+
 class GlobalConfig:
     """A structure to store global config data."""
 
@@ -223,7 +223,6 @@ class CreateVM(tk.Toplevel):
             width=10,
         )
         self.install_button.grid(column=1, row=0, padx=5, pady=5, stick="e")
-        
 
     def do_install(self):
         """Gets the TempleOS ISO, creates the QEMU Image, and runs it with the CD installed."""
@@ -314,6 +313,11 @@ class VMOptionFrame(tk.Frame):
             width=30,
         )
 
+        self.info_label = ttk.Label(
+            self,
+            text="X\nCores\nXMB RAM\nXGB Storage",
+        )
+
     def refresh(self):
         """Updates the frame to only show the needed buttons."""
 
@@ -322,8 +326,9 @@ class VMOptionFrame(tk.Frame):
         self.run_button.grid_remove()
         self.mount_button.grid_remove()
         self.unmount_button.grid_remove()
-        
-        self.first_separator.grid(column=0, row=0, pady=4, padx=20, sticky='ew')
+        self.info_label.grid_remove()
+
+        self.first_separator.grid(column=0, row=0, columnspan=2, pady=10, padx=20, sticky='ew')
             
         configured_vms = [vm.name for vm in VMConfig.get_all()]
         if self.chosen_vm is not None:
@@ -344,16 +349,20 @@ class VMOptionFrame(tk.Frame):
         self.chosen_vm.trace("w", lambda *args: self.refresh())
 
         vm_config = VMConfig.get_by_name(self.chosen_vm.get())
+
+        self.info_label['text'] = f"{vm_config.vm_type}\n{vm_config.cpu_count} Cores\n{vm_config.memory}MB RAM\n{vm_config.storage}GB Storage"
             
         if os.path.exists(vm_config.disc_filepath):
-            self.run_button.grid(column=0,row=2)
+            self.run_button.grid(column=1,row=1)
             
         if(os.path.exists(vm_config.disc_filepath) and
            not os.path.exists(vm_config.mountpoint)):
-            self.mount_button.grid(column=0,row=3)
+            self.mount_button.grid(column=1,row=2,sticky="nw")
             
         if os.path.exists(vm_config.mountpoint):
-            self.unmount_button.grid(column=0,row=4)
+            self.unmount_button.grid(column=1,row=2,sticky="nw")
+
+        self.info_label.grid(column=0,row=2, padx=5)
 
     def do_run(self):
         """Runs TempleOS."""
@@ -405,15 +414,14 @@ class MainMenu(tk.Frame):
             text='easyTOS!',
             font=('Helvetica', 30),
         )
-        self.message.grid(column=0,row=0,pady=8)
+        self.message.grid(column=0,row=0,pady=8,padx=30)
 
         self.new_installation_button = ttk.Button(
             self,
             text='NEW INSTALLATION',
             command=lambda: CreateVM(self),
-            width=30,
         )
-        self.new_installation_button.grid(column=0,row=1)
+        self.new_installation_button.grid(column=0,row=1,sticky='ew')
 
         if len(VMConfig.get_all()) > 0:
             self.vm_options = VMOptionFrame(self)
@@ -424,15 +432,14 @@ class MainMenu(tk.Frame):
             self,
             orient='horizontal'
         )
-        self.second_separator.grid(column=0, row=3, pady=4, padx=20, sticky='ew')
+        self.second_separator.grid(column=0, row=3, pady=10, padx=20, sticky='ew')
             
         self.exit_button = ttk.Button(
             self,
             text='EXIT',
             command=args[0].destroy,
-            width=30,
         )
-        self.exit_button.grid(column=0,row=4)
+        self.exit_button.grid(column=0,row=4,sticky='ew')
 
     
 if __name__ == '__main__':
