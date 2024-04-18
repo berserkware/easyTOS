@@ -7,13 +7,6 @@ import requests
 import subprocess
 import configparser
 
-# Edit these to modify the program
-VM_MEMORY = 4096
-VM_STORAGE = '5G'
-CPU_COUNT = 2
-MOUNT_POINT = '/mnt/templeos'
-ISO_SOURCE = 'https://templeos.org/Downloads/TempleOS.ISO'
-
 def get_iso():
     """Downloads the TempleOS ISO."""
     print("Downloading TempleOS ISO...")
@@ -122,7 +115,7 @@ class VMConfig:
             disc_filepath=config_dict['DiscFilepath'],
             vm_type=config_dict.get('Type', 'qemu'),
             memory=config_dict.get('Memory', 8096),
-            storage=config_dict.get('Storage', '5G'),
+            storage=config_dict.get('Storage', 5),
             cpu_count=config_dict.get('CpuCount', 2),
         )
 
@@ -165,60 +158,112 @@ class CreateVM(tk.Toplevel):
     def __init__(self, *args, **kwargs):
         tk.Toplevel.__init__(self, *args, **kwargs)
 
-        self.wm_title("Create VM")
+        self.wm_title("New Installation")
         self.wm_resizable(False, False)
 
         self.message = ttk.Label(
             self,
-            text='Create VM',
+            text='New Installation',
             font=('Helvetica', 15),
         )
-        self.message.grid(column=0, row=0, pady=4)
+        self.message.grid(column=0, row=0, pady=5, padx=5, columnspan=2, stick='w')
 
         self.name_label = ttk.Label(
             self,
             text='Name:',
         )
-        self.name_label.grid(column=0, row=1)
+        self.name_label.grid(column=0, row=1, padx=5, stick='e')
 
         self.vm_name = tk.StringVar()
-        self.vm_name_textbox = ttk.Entry(self, textvariable=self.vm_name)
-        self.vm_name_textbox.grid(column=0, row=2, stick='ew')
+        self.vm_name_textbox = ttk.Entry(self, textvariable=self.vm_name, width=20)
+        self.vm_name_textbox.grid(column=1, row=1, padx=5)
+
+        self.memory_label = ttk.Label(
+            self,
+            text='Memory (MB):',
+        )
+        self.memory_label.grid(column=0, row=2, padx=5, stick='e')
+
+        self.vm_memory = tk.StringVar()
+        self.vm_memory_textbox = ttk.Entry(self, textvariable=self.vm_memory, width=20)
+        self.vm_memory_textbox.grid(column=1, row=2, padx=5)
+
+        self.storage_label = ttk.Label(
+            self,
+            text='Storage (GB):',
+        )
+        self.storage_label.grid(column=0, row=3, padx=5, stick='e')
+
+        self.vm_storage = tk.StringVar()
+        self.vm_storage_textbox = ttk.Entry(self, textvariable=self.vm_storage, width=20)
+        self.vm_storage_textbox.grid(column=1, row=3, padx=5)
+
+        self.core_label = ttk.Label(
+            self,
+            text='Core Count:',
+        )
+        self.core_label.grid(column=0, row=4, padx=5, stick='e')
+
+        self.vm_core = tk.StringVar()
+        self.vm_core_textbox = ttk.Entry(self, textvariable=self.vm_core, width=20)
+        self.vm_core_textbox.grid(column=1, row=4, padx=5)
+
+        self.create_vm_frame = tk.Frame(
+            self,
+        )
+        self.create_vm_frame.grid(column=0, row=5, columnspan=2, stick="e")
+        
+        self.hang_warning_label = ttk.Label(
+            self.create_vm_frame,
+            text="(May hang for a second)",
+        )
+        self.hang_warning_label.grid(column=0, row=0, stick="e")
         
         self.install_button = ttk.Button(
-            self,
+            self.create_vm_frame,
             text='Create',
             command=self.do_install,
-            width=30,
+            width=10,
         )
-        self.install_button.grid(column=0, row=3)
+        self.install_button.grid(column=1, row=0, padx=5, pady=5, stick="e")
         
 
     def do_install(self):
         """Gets the TempleOS ISO, creates the QEMU Image, and runs it with the CD installed."""
-        if self.vm_name.get().strip() == '' or ' ' in self.vm_name.get().strip():
+        vm_name = self.vm_name.get().strip()
+        vm_memory = self.vm_memory.get().strip()
+        vm_storage = self.vm_storage.get().strip()
+        vm_cores = self.vm_core.get().strip()
+        
+        if(
+                vm_name == '' or
+                vm_memory == '' or
+                vm_storage == '' or
+                vm_cores == '' or
+                ' ' in vm_name
+        ):
             return
         
         if not os.path.exists('/var/lib/easytos/TempleOS.ISO'):
             get_iso()
 
-        if not os.path.exists(f'/var/lib/easytos/{self.vm_name.get().strip()}.qcow2'):
+        if not os.path.exists(f'/var/lib/easytos/{vm_name}.qcow2'):
             print("Creating QEMU img...")
-            os.system(f'sudo qemu-img create /var/lib/easytos/{self.vm_name.get().strip()}.qcow2 {VM_STORAGE}')
+            os.system(f'sudo qemu-img create /var/lib/easytos/{vm_name}.qcow2 {vm_storage}G')
             print("Done.")
 
         print("Initial TempleOS boot...")
         os.system(
-            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {VM_MEMORY} -smp {CPU_COUNT} -drive file=/var/lib/easytos/{self.vm_name.get().strip()}.qcow2,format=raw'
+            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {vm_memory} -smp {vm_cores} -drive file=/var/lib/easytos/{vm_name}.qcow2,format=raw'
         )
 
         vm_config = VMConfig(
             name=self.vm_name.get().strip(),
-            disc_filepath=f'/var/lib/easytos/{self.vm_name.get().strip()}.qcow2',
+            disc_filepath=f'/var/lib/easytos/{vm_name}.qcow2',
             vm_type='qemu',
-            memory=8096,
-            storage='5G',
-            cpu_count=2,
+            memory=int(vm_memory),
+            storage=int(vm_storage),
+            cpu_count=int(vm_cores),
         )
         vm_config.save()
 
