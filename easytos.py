@@ -207,50 +207,68 @@ class CreateVM(tk.Toplevel):
         )
         self.message.grid(column=0, row=0, pady=5, padx=5, columnspan=2, stick='w')
 
+        self.type_label = ttk.Label(
+            self,
+            text='Type:',
+        )
+        self.type_label.grid(column=0, row=1, padx=5, stick='e')
+        
+        types = ['qemu', 'vbox']
+        self.chosen_type = tk.StringVar(self)
+        self.chosen_type.set(types[0])
+        
+        self.vm_chooser = ttk.OptionMenu(
+            self,
+            self.chosen_type,
+            types[0],
+            *types,
+        )
+        self.vm_chooser.grid(column=1, row=1, padx=5, stick='ew')
+        
         self.name_label = ttk.Label(
             self,
             text='Name:',
         )
-        self.name_label.grid(column=0, row=1, padx=5, stick='e')
+        self.name_label.grid(column=0, row=2, padx=5, stick='e')
 
         self.vm_name = tk.StringVar()
         self.vm_name_textbox = ttk.Entry(self, textvariable=self.vm_name, width=20)
-        self.vm_name_textbox.grid(column=1, row=1, padx=5)
+        self.vm_name_textbox.grid(column=1, row=2, padx=5)
 
         self.memory_label = ttk.Label(
             self,
             text='Memory (MB):',
         )
-        self.memory_label.grid(column=0, row=2, padx=5, stick='e')
+        self.memory_label.grid(column=0, row=3, padx=5, stick='e')
 
         self.vm_memory = tk.StringVar()
         self.vm_memory_textbox = ttk.Entry(self, textvariable=self.vm_memory, width=20)
-        self.vm_memory_textbox.grid(column=1, row=2, padx=5)
+        self.vm_memory_textbox.grid(column=1, row=3, padx=5)
 
         self.storage_label = ttk.Label(
             self,
             text='Storage (GB):',
         )
-        self.storage_label.grid(column=0, row=3, padx=5, stick='e')
+        self.storage_label.grid(column=0, row=4, padx=5, stick='e')
 
         self.vm_storage = tk.StringVar()
         self.vm_storage_textbox = ttk.Entry(self, textvariable=self.vm_storage, width=20)
-        self.vm_storage_textbox.grid(column=1, row=3, padx=5)
+        self.vm_storage_textbox.grid(column=1, row=4, padx=5)
 
         self.core_label = ttk.Label(
             self,
             text='Core Count:',
         )
-        self.core_label.grid(column=0, row=4, padx=5, stick='e')
+        self.core_label.grid(column=0, row=5, padx=5, stick='e')
 
         self.vm_core = tk.StringVar()
         self.vm_core_textbox = ttk.Entry(self, textvariable=self.vm_core, width=20)
-        self.vm_core_textbox.grid(column=1, row=4, padx=5)
+        self.vm_core_textbox.grid(column=1, row=5, padx=5)
 
         self.create_vm_frame = tk.Frame(
             self,
         )
-        self.create_vm_frame.grid(column=0, row=5, columnspan=2, stick="e")
+        self.create_vm_frame.grid(column=0, row=6, columnspan=2, stick="e")
         
         self.hang_warning_label = ttk.Label(
             self.create_vm_frame,
@@ -268,6 +286,7 @@ class CreateVM(tk.Toplevel):
 
     def do_install(self):
         """Gets the TempleOS ISO, creates the QEMU Image, and runs it with the CD installed."""
+        vm_type = self.chosen_type.get()
         vm_name = self.vm_name.get().strip()
         vm_memory = self.vm_memory.get().strip()
         vm_storage = self.vm_storage.get().strip()
@@ -284,26 +303,54 @@ class CreateVM(tk.Toplevel):
         
         if not os.path.exists('/var/lib/easytos/TempleOS.ISO'):
             get_iso()
+
+        if vm_type == 'qemu':
+            print("Creating QEMU img...")
+            os.system(f'sudo qemu-img create /var/lib/easytos/{vm_name}.qcow2 {vm_storage}G')
+            print("Done.")
+
+            print("Initial TempleOS boot...")
+            os.system(
+                f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {vm_memory} -smp {vm_cores} -drive file=/var/lib/easytos/{vm_name}.qcow2,format=raw'
+            )
+
+            vm_config = VMConfig(
+                name=vm_name,
+                mountpoint=f'/mnt/{vm_name}',
+                disc_filepath=f'/var/lib/easytos/{vm_name}.qcow2',
+                vm_type=vm_type,
+                memory=int(vm_memory),
+                storage=int(vm_storage),
+                cpu_count=int(vm_cores),
+            )
+            vm_config.save()
+        elif vm_type == 'vbox':
+            print("Creating VirtualBox VM...")
+            os.system(f'VBoxManage createvm --name {vm_name} --ostype Other_64 --register --basefolder /var/lib/easytos')
+            os.system(f'VBoxManage modifyvm {vm_name} --ioapic on')
+            os.system(f'VBoxManage modifyvm {vm_name} --memory {vm_memory} --vram 128')
+            os.system(f'VBoxManage modifyvm {vm_name} --cpus {vm_cores}')
             
-        print("Creating QEMU img...")
-        os.system(f'sudo qemu-img create /var/lib/easytos/{vm_name}.qcow2 {vm_storage}G')
-        print("Done.")
+            os.system(f'VBoxManage createhd --filename /var/lib/easytos/{vm_name}/{vm_name}.vdi --size {int(vm_storage)*1000} --format VDI')
+            os.system(f'VBoxManage storagectl {vm_name} --name "IDE Controller" --add ide --controller PIIX4')
+    
+            os.system(f'VBoxManage storageattach {vm_name} --storagectl "IDE Controller" --port 0 --device 0 --type hdd --medium /var/lib/easytos/{vm_name}/{vm_name}.vdi')
+            os.system(f'VBoxManage storageattach {vm_name} --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium /var/lib/easytos/TempleOS.ISO')
 
-        print("Initial TempleOS boot...")
-        os.system(
-            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {vm_memory} -smp {vm_cores} -drive file=/var/lib/easytos/{vm_name}.qcow2,format=raw'
-        )
+            os.system(f'VBoxManage startvm {vm_name}')
 
-        vm_config = VMConfig(
-            name=self.vm_name.get().strip(),
-            mountpoint=f'/mnt/{vm_name}',
-            disc_filepath=f'/var/lib/easytos/{vm_name}.qcow2',
-            vm_type='qemu',
-            memory=int(vm_memory),
-            storage=int(vm_storage),
-            cpu_count=int(vm_cores),
-        )
-        vm_config.save()
+            print("Done")
+
+            vm_config = VMConfig(
+                name=vm_name,
+                mountpoint=f'/mnt/{vm_name}',
+                disc_filepath=f'/var/lib/easytos/{vm_name}/{vm_name}.vdi',
+                vm_type=vm_type,
+                memory=int(vm_memory),
+                storage=int(vm_storage),
+                cpu_count=int(vm_cores),
+            )
+            vm_config.save()
 
         self.master.vm_options = VMOptionFrame(self.master)
         self.master.vm_options.refresh()
@@ -411,10 +458,14 @@ class VMOptionFrame(tk.Frame):
         vm_config = VMConfig.get_by_name(self.chosen_vm.get())
         
         print("Starting TempleOS...")
-        subprocess.Popen(
-            f'sudo qemu-system-x86_64 -m {vm_config.memory} -smp {vm_config.cpu_count} -drive file={vm_config.disc_filepath},format=raw',
-            shell=True,
-        )
+        if vm_config.vm_type == 'qemu':
+            subprocess.Popen(
+                f'sudo qemu-system-x86_64 -m {vm_config.memory} -smp {vm_config.cpu_count} -drive file={vm_config.disc_filepath},format=raw',
+                shell=True,
+            )
+        elif vm_config.vm_type == 'vbox':
+            os.system(f'VBoxManage storageattach {vm_config.name} --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium none')
+            os.system(f'VBoxManage startvm {vm_config.name}')
 
     def do_mount(self):
         """Mounts the QEMU disc."""

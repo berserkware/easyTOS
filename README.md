@@ -10,6 +10,7 @@ easyTOS is a utility program for installing, running, and mounting TempleOS. Ple
     - tkinter
     - requests
  - QEMU
+ - [OPTIONAL] VirtualBox
 
 ## Installing
 ```bash
