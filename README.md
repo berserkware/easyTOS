@@ -32,9 +32,6 @@ $ sudo easytos
  - UNMOUNT: Unmounts the installation's QEMU disc.
  - EXIT: Exits easyTOS.
 
-## Configuring
-You can configure the VMs and easyTOS by editing the /var/lib/easytos/config.ini file.
-
 ## TODO
  - [DONE] Support for mulitple TOS VMs
  - [DONE] Graphical VM-configurator
