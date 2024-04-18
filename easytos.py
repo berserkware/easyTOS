@@ -31,9 +31,8 @@ def get_or_create_config():
 class GlobalConfig:
     """A structure to store global config data."""
 
-    def __init__(self, iso_source, mount_point):
+    def __init__(self, iso_source):
         self.iso_source = iso_source
-        self.mount_point = mount_point
 
     @classmethod
     def get_global_config(cls):
@@ -57,26 +56,22 @@ class GlobalConfig:
                 'ISOSource',
                 'https://templeos.org/Downloads/TempleOS.ISO',
             ),
-            mount_point=config_dict.get(
-                'MountPoint',
-                '/mnt/templeos'
-            ),
         )
 
     def make_dict(self):
         """Converts the config into a dict to put into the INI file."""
         config = {}
         config['ISOSource'] = self.iso_source
-        config['MountPoint'] = self.mount_point
         return config
     
 
 class VMConfig:
     """A structure to store VM config data."""
 
-    def __init__(self, name, disc_filepath, vm_type, memory, storage, cpu_count):
+    def __init__(self, name, disc_filepath, mountpoint, vm_type, memory, storage, cpu_count):
         self.name = name
         self.disc_filepath = disc_filepath
+        self.mountpoint = mountpoint
         self.vm_type = vm_type
         self.memory = memory
         self.storage = storage
@@ -113,6 +108,7 @@ class VMConfig:
         return cls(
             name=config_dict['Name'],
             disc_filepath=config_dict['DiscFilepath'],
+            mountpoint=config_dict['Mountpoint'],
             vm_type=config_dict.get('Type', 'qemu'),
             memory=config_dict.get('Memory', 8096),
             storage=config_dict.get('Storage', 5),
@@ -124,6 +120,7 @@ class VMConfig:
         config = {}
         config['Name'] = self.name
         config['DiscFilepath'] = self.disc_filepath
+        config['Mountpoint'] = self.mountpoint
         config['Type'] = self.vm_type
         config['Memory'] = self.memory
         config['Storage'] = self.storage
@@ -246,11 +243,10 @@ class CreateVM(tk.Toplevel):
         
         if not os.path.exists('/var/lib/easytos/TempleOS.ISO'):
             get_iso()
-
-        if not os.path.exists(f'/var/lib/easytos/{vm_name}.qcow2'):
-            print("Creating QEMU img...")
-            os.system(f'sudo qemu-img create /var/lib/easytos/{vm_name}.qcow2 {vm_storage}G')
-            print("Done.")
+            
+        print("Creating QEMU img...")
+        os.system(f'sudo qemu-img create /var/lib/easytos/{vm_name}.qcow2 {vm_storage}G')
+        print("Done.")
 
         print("Initial TempleOS boot...")
         os.system(
@@ -259,6 +255,7 @@ class CreateVM(tk.Toplevel):
 
         vm_config = VMConfig(
             name=self.vm_name.get().strip(),
+            mountpoint=f'/mnt/{vm_name}',
             disc_filepath=f'/var/lib/easytos/{vm_name}.qcow2',
             vm_type='qemu',
             memory=int(vm_memory),
@@ -267,51 +264,33 @@ class CreateVM(tk.Toplevel):
         )
         vm_config.save()
 
-        self.master.run_button.grid(column=0,row=4)
-        self.master.mount_button.grid(column=0,row=5)
-        configured_vms = [vm.name for vm in VMConfig.get_all()]
-        self.master.chosen_vm = tk.StringVar(self)
-        self.master.chosen_vm.set(configured_vms[0])
-        
-        self.master.vm_chooser = ttk.OptionMenu(
-            self.master,
-            self.master.chosen_vm,
-            configured_vms[0],
-            *configured_vms,
-        )
-        self.master.vm_chooser.grid(column=0,row=3,stick='ew')
-        
-        self.master.first_separator.grid(
-            column=0, row=2, pady=4, padx=20, columnspan=2, sticky='ew'
-        )
+        self.master.vm_options = VMOptionFrame(self.master)
+        self.master.vm_options.refresh()
+        self.master.vm_options.grid(column=0, row=2)
         
         self.destroy()
-        
-    
-class MainMenu(tk.Frame):
-    """The main menu."""
-    
+
+
+class VMOptionFrame(tk.Frame):
+    """The frame that contains theVM options."""
+
     def __init__(self, *args, **kwargs):
         tk.Frame.__init__(self, *args, **kwargs)
 
-        self.message = ttk.Label(
-            self,
-            text='easyTOS!',
-            font=('Helvetica', 30),
-        )
-        self.message.grid(column=0,row=0,pady=8)
-
-        self.new_installation_button = ttk.Button(
-            self,
-            text='NEW INSTALLATION',
-            command=lambda: CreateVM(self),
-            width=30,
-        )
-        self.new_installation_button.grid(column=0,row=1)
-        
         self.first_separator = ttk.Separator(
             self,
             orient='horizontal'
+        )
+
+        configured_vms = [vm.name for vm in VMConfig.get_all()]
+        self.chosen_vm = tk.StringVar(self)
+        self.chosen_vm.set(configured_vms[0])
+        
+        self.vm_chooser = ttk.OptionMenu(
+            self,
+            self.chosen_vm,
+            configured_vms[0],
+            *configured_vms,
         )
 
         self.run_button = ttk.Button(
@@ -335,46 +314,46 @@ class MainMenu(tk.Frame):
             width=30,
         )
 
-        if len(VMConfig.get_all()) > 0:
-            self.first_separator.grid(column=0, row=2, pady=4, padx=20, columnspan=2, sticky='ew')
-            
-            configured_vms = [vm.name for vm in VMConfig.get_all()]
-            self.chosen_vm = tk.StringVar(self)
-            self.chosen_vm.set(configured_vms[0])
+    def refresh(self):
+        """Updates the frame to only show the needed buttons."""
+
+        self.first_separator.grid_remove()
+        self.vm_chooser.grid_remove()
+        self.run_button.grid_remove()
+        self.mount_button.grid_remove()
+        self.unmount_button.grid_remove()
         
-            self.vm_chooser = ttk.OptionMenu(
-                self,
-                self.chosen_vm,
-                configured_vms[0],
-                *configured_vms,
-            )
-            self.vm_chooser.grid(column=0,row=3,stick='ew')
-
-            vm_config = VMConfig.get_by_name(self.chosen_vm.get())
+        self.first_separator.grid(column=0, row=0, pady=4, padx=20, sticky='ew')
             
-            if os.path.exists(vm_config.disc_filepath):
-                self.run_button.grid(column=0,row=4)
-            
-            if(os.path.exists(vm_config.disc_filepath) and
-               not os.path.exists(GlobalConfig.get_global_config().mount_point)):
-                self.mount_button.grid(column=0,row=5)
-            
-            if os.path.exists(GlobalConfig.get_global_config().mount_point):
-                self.unmount_button.grid(column=0,row=6)
-
-        self.second_separator = ttk.Separator(
+        configured_vms = [vm.name for vm in VMConfig.get_all()]
+        if self.chosen_vm is not None:
+            chosen_vm = self.chosen_vm.get()
+            configured_vms[configured_vms.index(chosen_vm)] = configured_vms[0]
+            configured_vms[0] = chosen_vm
+        self.chosen_vm = tk.StringVar(self)
+        self.chosen_vm.set(configured_vms[0])
+        
+        self.vm_chooser = ttk.OptionMenu(
             self,
-            orient='horizontal'
+            self.chosen_vm,
+            configured_vms[0],
+            *configured_vms,
         )
-        self.second_separator.grid(column=0, row=7, pady=4, padx=20, columnspan=2, sticky='ew')
+        self.vm_chooser.grid(column=0,row=1,stick='ew')
+
+        self.chosen_vm.trace("w", lambda *args: self.refresh())
+
+        vm_config = VMConfig.get_by_name(self.chosen_vm.get())
             
-        self.exit_button = ttk.Button(
-            self,
-            text='EXIT',
-            command=args[0].destroy,
-            width=30,
-        )
-        self.exit_button.grid(column=0,row=8)
+        if os.path.exists(vm_config.disc_filepath):
+            self.run_button.grid(column=0,row=2)
+            
+        if(os.path.exists(vm_config.disc_filepath) and
+           not os.path.exists(vm_config.mountpoint)):
+            self.mount_button.grid(column=0,row=3)
+            
+        if os.path.exists(vm_config.mountpoint):
+            self.unmount_button.grid(column=0,row=4)
 
     def do_run(self):
         """Runs TempleOS."""
@@ -390,29 +369,70 @@ class MainMenu(tk.Frame):
         """Mounts the QEMU disc."""
         vm_config = VMConfig.get_by_name(self.chosen_vm.get())
         
-        if not os.path.exists(GlobalConfig.get_global_config().mount_point):
-            os.mkdir(GlobalConfig.get_global_config().mount_point)
+        if not os.path.exists(vm_config.mountpoint):
+            os.mkdir(vm_config.mountpoint)
 
         print("Mounting drive...")
         os.system('modprobe nbd max_part=8')
         os.system(f'qemu-nbd --connect=/dev/nbd0 {vm_config.disc_filepath}')
-        os.system('mount /dev/nbd0p1 /mnt/templeos')
-        print("Mounted at /mnt/templeos.")
+        os.system(f'mount /dev/nbd0p1 {vm_config.mountpoint}')
+        print(f"Mounted at {vm_config.mountpoint}.")
         
-        self.unmount_button.grid(column=0,row=6)
-        self.mount_button.grid_remove()
+        self.refresh()
         
     def do_unmount(self):
         """Unmounts the QEMU disc."""
+        vm_config = VMConfig.get_by_name(self.chosen_vm.get())
+        
         print("Unmounting drive...")
-        os.system(f'umount {GlobalConfig.get_global_config().mount_point}')
+        os.system(f'umount {vm_config.mountpoint}')
         os.system('qemu-nbd --disconnect /dev/nbd0')
         os.system('rmmod nbd')
-        os.rmdir(GlobalConfig.get_global_config().mount_point)
+        os.rmdir(vm_config.mountpoint)
         print("Done.")
 
-        self.unmount_button.grid_remove()
-        self.mount_button.grid(column=0,row=5)
+        self.refresh()
+        
+    
+class MainMenu(tk.Frame):
+    """The main menu."""
+    
+    def __init__(self, *args, **kwargs):
+        tk.Frame.__init__(self, *args, **kwargs)
+
+        self.message = ttk.Label(
+            self,
+            text='easyTOS!',
+            font=('Helvetica', 30),
+        )
+        self.message.grid(column=0,row=0,pady=8)
+
+        self.new_installation_button = ttk.Button(
+            self,
+            text='NEW INSTALLATION',
+            command=lambda: CreateVM(self),
+            width=30,
+        )
+        self.new_installation_button.grid(column=0,row=1)
+
+        if len(VMConfig.get_all()) > 0:
+            self.vm_options = VMOptionFrame(self)
+            self.vm_options.refresh()
+            self.vm_options.grid(column=0, row=2)
+
+        self.second_separator = ttk.Separator(
+            self,
+            orient='horizontal'
+        )
+        self.second_separator.grid(column=0, row=3, pady=4, padx=20, sticky='ew')
+            
+        self.exit_button = ttk.Button(
+            self,
+            text='EXIT',
+            command=args[0].destroy,
+            width=30,
+        )
+        self.exit_button.grid(column=0,row=4)
 
     
 if __name__ == '__main__':
@@ -431,6 +451,6 @@ if __name__ == '__main__':
         get_or_create_config()
             
         main_menu = MainMenu(root)
-        main_menu.pack(side="top", fill="both", expand=True)
+        main_menu.pack()
         
     root.mainloop()

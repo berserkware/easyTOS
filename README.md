@@ -5,9 +5,10 @@ easyTOS is a utility program for installing, running, and mounting TempleOS. Ple
 
 ## Prerequisites
  - Linux: easyTOS currently only works on Linux.
+  - - nbd Kernel Module
  - Python 3.11
- - Tkinter
- - Requests
+  - tkinter
+  - requests
  - QEMU
 
 ## Installing
@@ -39,3 +40,5 @@ You can configure the VMs and easyTOS by editing the /var/lib/easytos/config.ini
  - Graphical easyTOS-configurator
  - Support mounting other drives, like the D drive.
  - Terminal logging.
+### Known Bugs
+ - Mounting multiple drives at the same time might cause unexpected behaviour. This is becuase nbd0 is hard coded to be used when mounting drives.
