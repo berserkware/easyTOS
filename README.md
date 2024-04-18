@@ -37,7 +37,7 @@ You can configure the VMs and easyTOS by editing the /var/lib/easytos/config.ini
 ## TODO
  - [DONE] Support for mulitple TOS VMs
  - [DONE] Graphical VM-configurator
- - Graphical easyTOS-configurator
+ - [DONE] Graphical easyTOS-configurator
  - Support mounting other drives, like the D drive.
  - Terminal logging.
 ### Known Bugs

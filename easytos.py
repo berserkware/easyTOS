@@ -149,6 +149,48 @@ class SudoNotice(tk.Frame):
         self.button.pack()
 
 
+class ConfigureEasyTOS(tk.Toplevel):
+    """A window for configuring easyTOS."""
+
+    def __init__(self, *args, **kwargs):
+        tk.Toplevel.__init__(self, *args, **kwargs)
+
+        self.wm_title("Configure easyTOS")
+        self.wm_resizable(False, False)
+
+        self.message = ttk.Label(
+            self,
+            text='Configure easyTOS!',
+            font=('Helvetica', 15),
+        )
+        self.message.grid(column=0, row=0, pady=5, padx=5, columnspan=2, stick='w')
+
+        self.iso_source_label = ttk.Label(
+            self,
+            text='ISO Source:',
+        )
+        self.iso_source_label.grid(column=0, row=1, padx=5, stick='e')
+        
+        self.iso_source = tk.StringVar()
+        self.iso_source.set(GlobalConfig.get_global_config().iso_source)
+        self.iso_source_textbox = ttk.Entry(self, textvariable=self.iso_source, width=40)
+        self.iso_source_textbox.grid(column=1, row=1, padx=5)
+
+        self.save_button = ttk.Button(
+            self,
+            text='Save',
+            command=self.save_config,
+            width=10,
+        )
+        self.save_button.grid(column=0, row=2, padx=5, pady=5, stick="e", columnspan=2)
+
+    def save_config(self):
+        config = GlobalConfig.get_global_config()
+        config.iso_source = self.iso_source.get()
+        config.save()
+        self.destroy()
+        
+
 class CreateVM(tk.Toplevel):
     """A window for creating a VM."""
     
@@ -433,13 +475,20 @@ class MainMenu(tk.Frame):
             orient='horizontal'
         )
         self.second_separator.grid(column=0, row=3, pady=10, padx=20, sticky='ew')
-            
+
+        self.configure_button = ttk.Button(
+            self,
+            text='CONFIGURE EASYTOS',
+            command=lambda: ConfigureEasyTOS(self),
+        )
+        self.configure_button.grid(column=0,row=4,sticky='ew')
+        
         self.exit_button = ttk.Button(
             self,
             text='EXIT',
             command=args[0].destroy,
         )
-        self.exit_button.grid(column=0,row=4,sticky='ew')
+        self.exit_button.grid(column=0,row=5,sticky='ew')
 
     
 if __name__ == '__main__':
