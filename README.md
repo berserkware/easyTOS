@@ -5,10 +5,10 @@ easyTOS is a utility program for installing, running, and mounting TempleOS. Ple
 
 ## Prerequisites
  - Linux: easyTOS currently only works on Linux.
-  - - nbd Kernel Module
+    - nbd Kernel Module
  - Python 3.11
-  - tkinter
-  - requests
+    - tkinter
+    - requests
  - QEMU
 
 ## Installing
