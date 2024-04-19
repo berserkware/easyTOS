@@ -65,8 +65,8 @@ class GlobalConfig:
         return config
     
 
-class VMConfig:
-    """A structure to store VM config data."""
+class VirtualMachine:
+    """A structure for storing and managing virutal machines."""
 
     def __init__(self, name, disc_filepath, mountpoint, vm_type, memory, storage, cpu_count):
         self.name = name
@@ -80,31 +80,24 @@ class VMConfig:
     @classmethod
     def get_all(cls):
         """Gets all the configured VMs."""
-        vm_configs = []
+        vms = []
         config = get_or_create_config()
         for section in config.sections():
             if section == 'Global':
                 continue
-            vm_configs.append(VMConfig.make_from_dict(config[section]))
+            vms.append(VirtualMachine.make_from_dict(config[section]))
 
-        return vm_configs
+        return vms
             
     @classmethod
     def get_by_name(cls, name):
         """Gets a vm config by name."""
         config = get_or_create_config()
-        return VMConfig.make_from_dict(config[name])
-
-    def save(self):
-        """Sets a vm config."""
-        config = get_or_create_config()
-        config[self.name] = self.make_dict()
-        with open('/var/lib/easytos/config.ini', 'w') as configfile:
-            config.write(configfile)
+        return VirtualMachine.make_from_dict(config[name])
         
     @classmethod
     def make_from_dict(cls, config_dict: dict):
-        """Makes a VMConfig from a dict gotten from the ini."""
+        """Makes self from a dict gotten from the ini."""
         return cls(
             name=config_dict['Name'],
             disc_filepath=config_dict['DiscFilepath'],
@@ -115,8 +108,89 @@ class VMConfig:
             cpu_count=config_dict.get('CpuCount', 2),
         )
 
+    def run(self):
+        """Runs the VM."""
+        print("Starting TempleOS...")
+        if self.vm_type == 'qemu':
+            subprocess.Popen(
+                f'sudo qemu-system-x86_64 -m {self.memory} -smp {self.cpu_count} -drive file={self.disc_filepath},format=raw',
+                shell=True,
+            )
+        elif self.vm_type == 'vbox':
+            os.system(f'VBoxManage storageattach {self.name} --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium none')
+            os.system(f'VBoxManage startvm {self.name}')
+
+    def qemu_install(self):
+        """Installs the VM with QEMU."""
+        print("Creating QEMU img...")
+        os.system(f'sudo qemu-img create /var/lib/easytos/{self.name}.qcow2 {self.storage}G')
+        print("Done")
+
+        print("Initial TempleOS boot...")
+        os.system(
+            f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {self.memory} -smp {self.cpu_count} -drive file=/var/lib/easytos/{self.name}.qcow2,format=raw'
+        )
+        print("Done")
+        
+    def vbox_install(self):
+        """Installs the VM with VirtualBox."""
+        print("Creating VirtualBox VM...")
+        os.system(f'VBoxManage createvm --name {self.name} --ostype Other_64 --register --basefolder /var/lib/easytos')
+        os.system(f'VBoxManage modifyvm {self.name} --ioapic on')
+        os.system(f'VBoxManage modifyvm {self.name} --memory {self.memory} --vram 128')
+        os.system(f'VBoxManage modifyvm {self.name} --cpus {self.cpu_count}')
+            
+        os.system(f'VBoxManage createhd --filename /var/lib/easytos/{self.name}/{self.name}.vdi --size {int(self.storage)*1000} --format VDI')
+        os.system(f'VBoxManage storagectl {self.name} --name "IDE Controller" --add ide --controller PIIX4')
+    
+        os.system(f'VBoxManage storageattach {self.name} --storagectl "IDE Controller" --port 0 --device 0 --type hdd --medium /var/lib/easytos/{self.name}/{self.name}.vdi')
+        os.system(f'VBoxManage storageattach {self.name} --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium /var/lib/easytos/TempleOS.ISO')
+        print("Done")
+
+        print("Initial TempleOS boot...")
+        os.system(f'VBoxManage startvm {self.name}')
+        print("Done")
+            
+    def install(self):
+        """Installs the VM according to the classes attributes."""
+
+        if not os.path.exists('/var/lib/easytos/TempleOS.ISO'):
+            get_iso()
+
+        if self.vm_type == 'qemu':
+            self.qemu_install()
+        elif self.vm_type == 'vbox':
+            self.vbox_install()
+
+    def mount(self):
+        """Mounts the VM's disc."""
+        if not os.path.exists(self.mountpoint):
+            os.mkdir(self.mountpoint)
+
+        print("Mounting drive...")
+        os.system('modprobe nbd max_part=8')
+        os.system(f'qemu-nbd --connect=/dev/nbd0 {self.disc_filepath}')
+        os.system(f'mount /dev/nbd0p1 {self.mountpoint}')
+        print(f"Mounted at {self.mountpoint}.")
+
+    def unmount(self):
+        """Unmounts the VM's disc."""
+        print("Unmounting drive...")
+        os.system(f'umount {self.mountpoint}')
+        os.system('qemu-nbd --disconnect /dev/nbd0')
+        os.system('rmmod nbd')
+        os.rmdir(self.mountpoint)
+        print("Done.")
+        
+    def save(self):
+        """Sets a vm config."""
+        config = get_or_create_config()
+        config[self.name] = self.make_dict()
+        with open('/var/lib/easytos/config.ini', 'w') as configfile:
+            config.write(configfile)
+
     def make_dict(self):
-        """Converts the config into a dict to put into the INI file."""
+        """Converts the VM into a dict to put into the INI file."""
         config = {}
         config['Name'] = self.name
         config['DiscFilepath'] = self.disc_filepath
@@ -305,16 +379,7 @@ class CreateVM(tk.Toplevel):
             get_iso()
 
         if vm_type == 'qemu':
-            print("Creating QEMU img...")
-            os.system(f'sudo qemu-img create /var/lib/easytos/{vm_name}.qcow2 {vm_storage}G')
-            print("Done.")
-
-            print("Initial TempleOS boot...")
-            os.system(
-                f'sudo qemu-system-x86_64 -boot d -cdrom /var/lib/easytos/TempleOS.ISO -m {vm_memory} -smp {vm_cores} -drive file=/var/lib/easytos/{vm_name}.qcow2,format=raw'
-            )
-
-            vm_config = VMConfig(
+            vm = VirtualMachine(
                 name=vm_name,
                 mountpoint=f'/mnt/{vm_name}',
                 disc_filepath=f'/var/lib/easytos/{vm_name}.qcow2',
@@ -323,25 +388,10 @@ class CreateVM(tk.Toplevel):
                 storage=int(vm_storage),
                 cpu_count=int(vm_cores),
             )
-            vm_config.save()
+            vm.install()
+            vm.save()
         elif vm_type == 'vbox':
-            print("Creating VirtualBox VM...")
-            os.system(f'VBoxManage createvm --name {vm_name} --ostype Other_64 --register --basefolder /var/lib/easytos')
-            os.system(f'VBoxManage modifyvm {vm_name} --ioapic on')
-            os.system(f'VBoxManage modifyvm {vm_name} --memory {vm_memory} --vram 128')
-            os.system(f'VBoxManage modifyvm {vm_name} --cpus {vm_cores}')
-            
-            os.system(f'VBoxManage createhd --filename /var/lib/easytos/{vm_name}/{vm_name}.vdi --size {int(vm_storage)*1000} --format VDI')
-            os.system(f'VBoxManage storagectl {vm_name} --name "IDE Controller" --add ide --controller PIIX4')
-    
-            os.system(f'VBoxManage storageattach {vm_name} --storagectl "IDE Controller" --port 0 --device 0 --type hdd --medium /var/lib/easytos/{vm_name}/{vm_name}.vdi')
-            os.system(f'VBoxManage storageattach {vm_name} --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium /var/lib/easytos/TempleOS.ISO')
-
-            os.system(f'VBoxManage startvm {vm_name}')
-
-            print("Done")
-
-            vm_config = VMConfig(
+            vm = VirtualMachine(
                 name=vm_name,
                 mountpoint=f'/mnt/{vm_name}',
                 disc_filepath=f'/var/lib/easytos/{vm_name}/{vm_name}.vdi',
@@ -350,7 +400,8 @@ class CreateVM(tk.Toplevel):
                 storage=int(vm_storage),
                 cpu_count=int(vm_cores),
             )
-            vm_config.save()
+            vm.install()
+            vm.save()
 
         self.master.vm_options = VMOptionFrame(self.master)
         self.master.vm_options.refresh()
@@ -370,15 +421,15 @@ class VMOptionFrame(tk.Frame):
             orient='horizontal'
         )
 
-        configured_vms = [vm.name for vm in VMConfig.get_all()]
+        vms = [vm.name for vm in VirtualMachine.get_all()]
         self.chosen_vm = tk.StringVar(self)
-        self.chosen_vm.set(configured_vms[0])
+        self.chosen_vm.set(vms[0])
         
         self.vm_chooser = ttk.OptionMenu(
             self,
             self.chosen_vm,
-            configured_vms[0],
-            *configured_vms,
+            vms[0],
+            *vms,
         )
 
         self.run_button = ttk.Button(
@@ -419,79 +470,57 @@ class VMOptionFrame(tk.Frame):
 
         self.first_separator.grid(column=0, row=0, columnspan=2, pady=10, padx=20, sticky='ew')
             
-        configured_vms = [vm.name for vm in VMConfig.get_all()]
+        vms = [vm.name for vm in VirtualMachine.get_all()]
         if self.chosen_vm is not None:
             chosen_vm = self.chosen_vm.get()
-            configured_vms[configured_vms.index(chosen_vm)] = configured_vms[0]
-            configured_vms[0] = chosen_vm
+            vms[vms.index(chosen_vm)] = vms[0]
+            vms[0] = chosen_vm
         self.chosen_vm = tk.StringVar(self)
-        self.chosen_vm.set(configured_vms[0])
+        self.chosen_vm.set(vms[0])
         
         self.vm_chooser = ttk.OptionMenu(
             self,
             self.chosen_vm,
-            configured_vms[0],
-            *configured_vms,
+            vms[0],
+            *vms,
         )
         self.vm_chooser.grid(column=0,row=1,stick='ew')
 
         self.chosen_vm.trace("w", lambda *args: self.refresh())
 
-        vm_config = VMConfig.get_by_name(self.chosen_vm.get())
+        vm = VirtualMachine.get_by_name(self.chosen_vm.get())
 
-        self.info_label['text'] = f"{vm_config.vm_type}\n{vm_config.cpu_count} Cores\n{vm_config.memory}MB RAM\n{vm_config.storage}GB Storage"
+        self.info_label['text'] = f"{vm.vm_type}\n{vm.cpu_count} Cores\n{vm.memory}MB RAM\n{vm.storage}GB Storage"
             
-        if os.path.exists(vm_config.disc_filepath):
+        if os.path.exists(vm.disc_filepath):
             self.run_button.grid(column=1,row=1)
             
-        if(os.path.exists(vm_config.disc_filepath) and
-           not os.path.exists(vm_config.mountpoint)):
+        if(os.path.exists(vm.disc_filepath) and
+           not os.path.exists(vm.mountpoint)):
             self.mount_button.grid(column=1,row=2,sticky="nw")
             
-        if os.path.exists(vm_config.mountpoint):
+        if os.path.exists(vm.mountpoint):
             self.unmount_button.grid(column=1,row=2,sticky="nw")
 
         self.info_label.grid(column=0,row=2, padx=5)
 
     def do_run(self):
         """Runs TempleOS."""
-        vm_config = VMConfig.get_by_name(self.chosen_vm.get())
+        vm = VirtualMachine.get_by_name(self.chosen_vm.get())
+        vm.run()
         
-        print("Starting TempleOS...")
-        if vm_config.vm_type == 'qemu':
-            subprocess.Popen(
-                f'sudo qemu-system-x86_64 -m {vm_config.memory} -smp {vm_config.cpu_count} -drive file={vm_config.disc_filepath},format=raw',
-                shell=True,
-            )
-        elif vm_config.vm_type == 'vbox':
-            os.system(f'VBoxManage storageattach {vm_config.name} --storagectl "IDE Controller" --port 1 --device 1 --type dvddrive --medium none')
-            os.system(f'VBoxManage startvm {vm_config.name}')
 
     def do_mount(self):
         """Mounts the QEMU disc."""
-        vm_config = VMConfig.get_by_name(self.chosen_vm.get())
-        
-        if not os.path.exists(vm_config.mountpoint):
-            os.mkdir(vm_config.mountpoint)
-
-        print("Mounting drive...")
-        os.system('modprobe nbd max_part=8')
-        os.system(f'qemu-nbd --connect=/dev/nbd0 {vm_config.disc_filepath}')
-        os.system(f'mount /dev/nbd0p1 {vm_config.mountpoint}')
-        print(f"Mounted at {vm_config.mountpoint}.")
+        vm = VirtualMachine.get_by_name(self.chosen_vm.get())
+        vm.mount()
         
         self.refresh()
         
     def do_unmount(self):
         """Unmounts the QEMU disc."""
-        vm_config = VMConfig.get_by_name(self.chosen_vm.get())
-        
-        print("Unmounting drive...")
-        os.system(f'umount {vm_config.mountpoint}')
-        os.system('qemu-nbd --disconnect /dev/nbd0')
-        os.system('rmmod nbd')
-        os.rmdir(vm_config.mountpoint)
-        print("Done.")
+        vm = VirtualMachine.get_by_name(self.chosen_vm.get())
+        vm.unmount()
 
         self.refresh()
         
@@ -516,7 +545,7 @@ class MainMenu(tk.Frame):
         )
         self.new_installation_button.grid(column=0,row=1,sticky='ew')
 
-        if len(VMConfig.get_all()) > 0:
+        if len(VirtualMachine.get_all()) > 0:
             self.vm_options = VMOptionFrame(self)
             self.vm_options.refresh()
             self.vm_options.grid(column=0, row=2)
