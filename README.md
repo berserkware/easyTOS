@@ -14,8 +14,8 @@ easyTOS is a utility program for installing, running, and mounting TempleOS. Ple
 
 ## Installing
 ```bash
-$ git clone https://github.com/berserkware/easytos
-$ cd easytos
+$ git clone https://github.com/berserkware/easyTOS
+$ cd easyTOS
 $ sudo cp easytos.py /usr/bin/easytos
 ```
 
