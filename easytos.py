@@ -139,6 +139,7 @@ class VirtualMachine:
         os.system(f'VBoxManage modifyvm {self.name} --ioapic on')
         os.system(f'VBoxManage modifyvm {self.name} --memory {self.memory} --vram 128')
         os.system(f'VBoxManage modifyvm {self.name} --cpus {self.cpu_count}')
+        os.system(f'VBoxManage modifyvm {self.name} --audio-driver NULL')
             
         os.system(f'VBoxManage createhd --filename /var/lib/easytos/{self.name}/{self.name}.vdi --size {int(self.storage)*1000} --format VDI')
         os.system(f'VBoxManage storagectl {self.name} --name "IDE Controller" --add ide --controller PIIX4')
