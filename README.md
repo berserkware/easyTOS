@@ -25,11 +25,11 @@ You need to run easyTOS with sudo for it to work.
 $ sudo easytos
 ```
 ### Options
- - NEW INSTALLATION: Downloads the TOS ISO, creates the QEMU disc, and runs the VM for you to install TOS on the disc.
+ - NEW INSTALLATION: Downloads the TOS ISO, creates the VM, and runs it for you to install TOS on the disc.
  - Installation Selector: Selection installation
  - RUN: Runs the selected installtion.
- - MOUNT: Mounts the selected installation's QEMU disc to allow you transfer files between your computer and Linux.
- - UNMOUNT: Unmounts the installation's QEMU disc.
+ - MOUNT: Mounts the selected installation's disc to allow you transfer files between your computer and Linux.
+ - UNMOUNT: Unmounts the installation's disc.
  - EXIT: Exits easyTOS.
 
 ## TODO
